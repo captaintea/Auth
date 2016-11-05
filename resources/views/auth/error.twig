@@ -1,0 +1,7 @@
+<div class="form-group has-error js-error {% if not flash['error'] %}hidden{% endif %}">
+    <div class="col-md-6 col-md-offset-4">
+        <span class="help-block">
+            <strong class="js-error-text">{% if flash['error'] %} {{ flash['error'] }} {% endif %}</strong>
+        </span>
+    </div>
+</div>

@@ -1,0 +1,13 @@
+{
+    "private": true,
+    "scripts": {
+        "dev": "NODE_ENV=development gulp && NODE_ENV=development gulp watch",
+        "prod": "gulp --production"
+    },
+    "devDependencies": {
+        "bootstrap-sass": "^3.3.7",
+        "gulp": "^3.9.1",
+        "laravel-elixir": "^6.0.0-9",
+        "laravel-elixir-browsersync-official": "^1.0.0"
+    }
+}

@@ -1,0 +1,9 @@
+/public/build/
+/storage/views/
+/vendor/
+/public/css/
+/public/js/
+/npm-debug.log
+/env.php
+/.idea
+/node_modules
