@@ -12,21 +12,4 @@ class Dao
         return DriverManager::getConnection(config('database.connections.mysql'), new Configuration());
     }
 
-    protected static function prepareInsertSet($set)
-    {
-        $fields = [];
-        $values = [];
-        $subValues = [];
-
-        foreach ( $set as $k => $v ) {
-            $fields[] = $k;
-            $values[] = $v;
-            $subValues[] = "?";
-        }
-
-        $fields = "`".join("`,`", $fields)."`";
-        $subValues = join(",", $subValues);
-
-        return [ $fields, $subValues, $values ];
-    }
 }
