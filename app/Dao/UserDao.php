@@ -2,7 +2,10 @@
 
 namespace App\Dao;
 
-use App\Exceptions\BaseException;
+use App\Exceptions\InvalidPasswordException;
+use App\Exceptions\TakenEmailException;
+use App\Exceptions\UserDataException;
+use App\Exceptions\UserNotFoundException;
 use App\Services\AuthService;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 
@@ -10,24 +13,28 @@ class UserDao extends Dao
 {
     public static function register($rawData, $device)
     {
-        if (empty($rawData['email']) || empty($rawData['password'])) {
-            throw new BaseException('Wrong user data');
-        }
-        $rawData['salt'] = sha1($rawData['email'] . $device . mt_rand(1,999999999) . microtime(1));
-        $password = $rawData['password'];
-        $rawData['password'] = AuthService::passToHash($rawData['password'], $rawData['salt']);
-        if (empty($rawData['password']) || empty($rawData['salt'])) {
-            throw new BaseException('Wrong auth user data');
-        }
-        list($fields, $subValues, $values) = self::prepareInsertSet($rawData);
-        $statement = "insert into users ({$fields}, `created_at`) values ({$subValues}, NOW())";
-        $preparedStatement = self::db()->prepare($statement);
         try {
-            $preparedStatement->execute($values);
-        } catch (UniqueConstraintViolationException $e) {
-            throw new BaseException('This email is busy');
-        }
+            if (empty($rawData['email']) || empty($rawData['password'])) {
+                throw new UserDataException();
+            }
+            $rawData['salt'] = sha1($rawData['email'] . $device . mt_rand(1,999999999) . microtime(1));
+            $password = $rawData['password'];
+            $rawData['password'] = AuthService::passToHash($rawData['password'], $rawData['salt']);
+            if (empty($rawData['password']) || empty($rawData['salt'])) {
+                throw new UserDataException();
+            }
+            $statement = "insert into users (`name`, `email`, `password`, `salt`, `created_at`) values (?, ?, ?, ?, ?)";
+            $preparedStatement = self::db()->prepare($statement);
+            $preparedStatement->bindValue(1, $rawData['name']);
+            $preparedStatement->bindValue(2, $rawData['email']);
+            $preparedStatement->bindValue(3, $rawData['password']);
+            $preparedStatement->bindValue(4, $rawData['salt']);
+            $preparedStatement->bindValue(5, new \DateTime(), "datetime");
 
+            $preparedStatement->execute();
+        } catch (UniqueConstraintViolationException  $e) {
+            throw new TakenEmailException();
+        }
         return self::getByEmailPassword($rawData['email'], $password);
     }
 
@@ -36,20 +43,19 @@ class UserDao extends Dao
         $email = trim($email);
         $password = trim($password);
         if (empty($email) || empty($password)) {
-            throw new BaseException('Wrong user data');
+            throw new UserDataException();
         }
-
         $statement = "select a.* from users a where a.email = ? limit 1";
         $preparedStatement = self::db()->prepare($statement);
         $preparedStatement->bindValue(1, $email);
         $preparedStatement->execute();
         $userData = $preparedStatement->fetch();
-        if (empty($userData)) {
-            throw new BaseException('User not found');
+        if (empty($userData) || !is_array($userData)) {
+            throw new UserNotFoundException();
         }
         $passwordHash = AuthService::passToHash($password, $userData['salt']);
-        if ($passwordHash !== $userData['password']) {
-            throw new BaseException('Invalid password');
+        if (password_verify($userData['password'], $passwordHash)) {
+            throw new InvalidPasswordException();
         }
         return $userData;
     }
@@ -58,7 +64,7 @@ class UserDao extends Dao
     {
         $token = trim($token);
         if (empty($token)) {
-            return null;
+            throw new UserNotFoundException();
         }
         $statement = "
 			select
@@ -80,7 +86,7 @@ class UserDao extends Dao
         $preparedStatement->execute();
         $userData = $preparedStatement->fetch();
         if (empty($userData)) {
-            return null;
+            throw new UserNotFoundException();
         }
         return $userData;
     }
@@ -88,14 +94,13 @@ class UserDao extends Dao
     public static function createToken($userId, $device)
     {
         $token = sha1("$userId $device " . mt_rand(1,999999999) . " " . microtime(1));
-        list($fields, $subValues, $values) = self::prepareInsertSet([
-            'user_id' => $userId,
-            'device' => $device,
-            'token' => $token,
-        ]);
-        $statement = "insert into user_tokens ({$fields}, `created_at`) values ({$subValues}, NOW())";
+        $statement = "insert into user_tokens (`user_id`, `token`, `device`, `created_at`) values (?, ?, ?, ?)";
         $preparedStatement = self::db()->prepare($statement);
-        $preparedStatement->execute($values);
+        $preparedStatement->bindValue(1, $userId);
+        $preparedStatement->bindValue(2, $token);
+        $preparedStatement->bindValue(3, $device);
+        $preparedStatement->bindValue(4, new \DateTime(), "datetime");
+        $preparedStatement->execute();
         return $token;
     }
 
@@ -119,7 +124,7 @@ class UserDao extends Dao
         $preparedStatement->bindValue(2, $device);
         $preparedStatement->execute();
         $row = $preparedStatement->fetch();
-        return empty($row['token']) ? $row['token'] : null;
+        return !empty($row['token']) ? $row['token'] : null;
     }
 
     public static function touchToken($userId, $device)
@@ -127,20 +132,4 @@ class UserDao extends Dao
         return self::getToken($userId, $device) ?: self::createToken($userId, $device);
     }
 
-    public static function getRepeatedIpCount($ip, $time) {
-        $statement = "
-			select 
-			    count( u.ip ) as ip_count
-			from
-				users u
-			where
-				u.ip = ?
-				and u.created_at > ?
-		";
-        $preparedStatement = self::db()->prepare($statement);
-        $preparedStatement->bindValue(1, $ip);
-        $preparedStatement->bindValue(2, $time, "datetime");
-        $preparedStatement->execute();
-        return (int) $preparedStatement->fetch()['ip_count'];
-    }
 }

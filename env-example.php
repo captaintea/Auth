@@ -5,5 +5,7 @@ return [
     'DB_DATABASE' => 'database',
     'DB_USERNAME' => 'user',
     'DB_PASSWORD' => 'password',
-    'DB_DRIVER' => 'pdo_mysql'
+    'DB_DRIVER' => 'pdo_mysql',
+    'REDIS_HOST' => '127.0.0.1',
+    'REDIS_PORT' => '6379'
 ];

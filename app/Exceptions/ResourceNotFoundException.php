@@ -2,7 +2,7 @@
 
 namespace App\Exceptions;
 
-class ResourceNotFoundException extends \Exception
+class ResourceNotFoundException extends BaseException
 {
 
 }

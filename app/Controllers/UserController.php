@@ -2,7 +2,12 @@
 
 namespace App\Controllers;
 
-use App\Exceptions\BaseException;
+use App\Exceptions\AuthException;
+use App\Exceptions\EmailException;
+use App\Exceptions\EmptyFieldsException;
+use App\Exceptions\PasswordConfirmException;
+use App\Exceptions\PasswordException;
+use App\Exceptions\UsernameException;
 use App\Services\AuthService;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -11,16 +16,12 @@ use Symfony\Component\HttpFoundation\Session\Session;
 
 class UserController extends Controller
 {
-
     public function getIndexAction(Request $request)
     {
         try {
             $device = $request->headers->get('User-Agent');
             $user = AuthService::authByToken($request->cookies->get(AuthService::COOKIE_TOKEN_NAME), $device);
-        } catch (\Exception $e) {
-            return new RedirectResponse('/login');
-        }
-        if (empty($user)) {
+        } catch (AuthException $e) {
             return new RedirectResponse('/login');
         }
         return $this->render('home.twig', [
@@ -32,11 +33,9 @@ class UserController extends Controller
     {
         try {
             $device = $request->headers->get('User-Agent');
-            $user = AuthService::authByToken($request->cookies->get(AuthService::COOKIE_TOKEN_NAME), $device);
-            if (!empty($user)) {
-                return new RedirectResponse('/');
-            }
-        } finally {
+            AuthService::authByToken($request->cookies->get(AuthService::COOKIE_TOKEN_NAME), $device);
+            return new RedirectResponse('/');
+        } catch (AuthException $e) {
             return $this->render('auth/register.twig');
         }
     }
@@ -51,10 +50,10 @@ class UserController extends Controller
             $this->validatePassword($password);
             $this->validateEmail($email);
             if (empty($name)) {
-                throw new BaseException('All fields must be filled!');
+                throw new EmptyFieldsException();
             }
-            if (strlen($name) < 3 || strlen($name) > 15) {
-                throw new BaseException('Name must contain more then 3 and less then 15 characters');
+            if (strlen($name) < AuthService::USERNAME_MIN_LENGTH || strlen($name) > AuthService::USERNAME_MAX_LENGTH) {
+                throw new UsernameException();
             }
             $userData = [
                 'name' => $name,
@@ -63,27 +62,24 @@ class UserController extends Controller
                 'ip' => $request->getClientIp()
             ];
             $device = $request->headers->get('User-Agent');
-            $userData = AuthService::register($userData, $device);
+            AuthService::register($userData, $device);
             if ($passwordConfirm !== $password) {
-                throw new BaseException('Wrong password confirmation');
-            }
-            if (empty($userData) || !is_array($userData)) {
-                throw new BaseException('Server error');
+                throw new PasswordConfirmException();
             }
             if ($isJson) {
                 return new JsonResponse(json_encode(['success' => true], true));
             }
             return new RedirectResponse('/');
-        } catch (BaseException $e) {
+        } catch (AuthException $e) {
             if ($isJson) {
                 return new JsonResponse(json_encode([
                     'success' => false,
-                    'error' => $e->getMessage()
+                    'error' => $e->getDefaultMessage()
                 ], true));
             }
             $session = new Session();
             $session->getFlashBag()->setAll([
-                'error' => $e->getMessage(),
+                'error' => $e->getDefaultMessage(),
                 'old' => [
                     'email' => $email,
                     'name' => $name
@@ -119,9 +115,6 @@ class UserController extends Controller
             $this->validatePassword($password);
             $device = $request->headers->get('User-Agent');
             $userData = AuthService::authByPassword($email, $password, $device, $remember);
-            if (empty($userData) || !is_array($userData)) {
-                throw new BaseException('Server error');
-            }
             if ($isJson) {
                 return new JsonResponse(json_encode(['success' => true], true));
             }
@@ -129,16 +122,16 @@ class UserController extends Controller
                 'auth' => true,
                 'user' => $userData
             ]);
-        } catch (BaseException $e) {
+        } catch (AuthException $e) {
             if ($isJson) {
                 return new JsonResponse(json_encode([
                     'success' => false,
-                    'error' => $e->getMessage()
+                    'error' => $e->getDefaultMessage()
                 ], true));
             }
             $session = new Session();
             $session->getFlashBag()->setAll([
-                'error' => $e->getMessage(),
+                'error' => $e->getDefaultMessage(),
                 'old' => [
                     'email' => $email,
                     'remember' => $remember
@@ -158,19 +151,19 @@ class UserController extends Controller
 
     private function validateEmail($email) {
         if (empty($email)) {
-            throw new BaseException('All fields must be filled!');
+            throw new EmptyFieldsException();
         }
         if (!preg_match(AuthService::EMAIL_REGEXP, $email)) {
-            throw new BaseException('Wrong email');
+            throw new EmailException();
         }
     }
 
     private function validatePassword($password) {
         if (empty($password)) {
-            throw new BaseException('All fields must be filled!');
+            throw new EmptyFieldsException();
         }
-        if (strlen($password)< 3 || strlen($password) > 20) {
-            throw new BaseException('Password must contain more then 3 and less then 20 characters');
+        if (strlen($password) < AuthService::PASSWORD_MIN_LENGTH || strlen($password) > AuthService::PASSWORD_MAX_LENGTH) {
+            throw new PasswordException();
         }
     }
 
