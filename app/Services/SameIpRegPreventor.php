@@ -6,8 +6,7 @@ use App\Exceptions\IpAddressException;
 
 class SameIpRegPreventor
 {
-    const IP_DISABLE_REG_TIME = 4; //hour
-    const SECONDS_IN_HOUR = 3600;
+    const IP_DISABLE_REG_TIME = 4*3600; //4 hours
     private $redis;
     private $ip;
 
@@ -28,6 +27,6 @@ class SameIpRegPreventor
     public function rememberIp()
     {
         $this->redis->set($this->ip, true);
-        $this->redis->expire($this->ip, self::SECONDS_IN_HOUR * self::IP_DISABLE_REG_TIME);
+        $this->redis->expire($this->ip, self::IP_DISABLE_REG_TIME);
     }
 }

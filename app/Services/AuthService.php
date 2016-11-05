@@ -55,8 +55,9 @@ class AuthService
         return $userData;
     }
 
-    public static function logout()
+    public static function logout($token)
     {
+        UserDao::deleteToken($token);
         self::setAuthCookie("", self::COOKIE_DELETE_LIFETIME);
     }
 

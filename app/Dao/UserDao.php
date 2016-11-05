@@ -132,4 +132,12 @@ class UserDao extends Dao
         return self::getToken($userId, $device) ?: self::createToken($userId, $device);
     }
 
+    public static function deleteToken($token)
+    {
+        $statement = "delete from user_tokens where token = ?";
+        $preparedStatement = self::db()->prepare($statement);
+        $preparedStatement->bindValue(1, $token);
+        $preparedStatement->execute();
+    }
+
 }

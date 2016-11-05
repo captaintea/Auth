@@ -40,7 +40,8 @@ class UserController extends Controller
         }
     }
 
-    public function postRegisterAction(Request $request) {
+    public function postRegisterAction(Request $request)
+    {
         $isJson = $request->get('format') === 'json';
         $email = trim((string)$request->get('email'));
         $password = trim((string)$request->get('password'));
@@ -49,11 +50,9 @@ class UserController extends Controller
         try {
             $this->validatePassword($password);
             $this->validateEmail($email);
-            if (empty($name)) {
-                throw new EmptyFieldsException();
-            }
-            if (strlen($name) < AuthService::USERNAME_MIN_LENGTH || strlen($name) > AuthService::USERNAME_MAX_LENGTH) {
-                throw new UsernameException();
+            $this->validateName($name);
+            if ($passwordConfirm !== $password) {
+                throw new PasswordConfirmException();
             }
             $userData = [
                 'name' => $name,
@@ -63,9 +62,6 @@ class UserController extends Controller
             ];
             $device = $request->headers->get('User-Agent');
             AuthService::register($userData, $device);
-            if ($passwordConfirm !== $password) {
-                throw new PasswordConfirmException();
-            }
             if ($isJson) {
                 return new JsonResponse(json_encode(['success' => true], true));
             }
@@ -91,7 +87,8 @@ class UserController extends Controller
 
     }
 
-    public function getLoginAction(Request $request) {
+    public function getLoginAction(Request $request)
+    {
         try {
             $device = $request->headers->get('User-Agent');
             $user = AuthService::authByToken($request->cookies->get(AuthService::COOKIE_TOKEN_NAME), $device);
@@ -105,7 +102,8 @@ class UserController extends Controller
         }
     }
 
-    public function postLoginAction(Request $request) {
+    public function postLoginAction(Request $request)
+    {
         $isJson = $request->get('format') === 'json';
         $email = trim((string)$request->get('email'));
         $password = trim((string)$request->get('password'));
@@ -143,13 +141,15 @@ class UserController extends Controller
 
     }
 
-    public function postLogoutAction(Request $request) {
-        AuthService::logout();
+    public function postLogoutAction(Request $request)
+    {
+        AuthService::logout($request->cookies->get(AuthService::COOKIE_TOKEN_NAME));
         $referer = $request->headers->get('referer');
         return new RedirectResponse($referer);
     }
 
-    private function validateEmail($email) {
+    private function validateEmail($email)
+    {
         if (empty($email)) {
             throw new EmptyFieldsException();
         }
@@ -158,12 +158,23 @@ class UserController extends Controller
         }
     }
 
-    private function validatePassword($password) {
+    private function validatePassword($password)
+    {
         if (empty($password)) {
             throw new EmptyFieldsException();
         }
         if (strlen($password) < AuthService::PASSWORD_MIN_LENGTH || strlen($password) > AuthService::PASSWORD_MAX_LENGTH) {
             throw new PasswordException();
+        }
+    }
+
+    private function validateName($name)
+    {
+        if (empty($name)) {
+            throw new EmptyFieldsException();
+        }
+        if (strlen($name) < AuthService::USERNAME_MIN_LENGTH || strlen($name) > AuthService::USERNAME_MAX_LENGTH) {
+            throw new UsernameException();
         }
     }
 
