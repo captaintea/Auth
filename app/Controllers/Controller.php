@@ -13,9 +13,11 @@ class Controller
     public function render($viewPath, $data = [])
     {
         $loader = new Twig_Loader_Filesystem($_SERVER['DOCUMENT_ROOT'] . '/../' . config('views.paths', 'resources/views'));
-        $twig = new Twig_Environment($loader, [
-            'cache' => $_SERVER['DOCUMENT_ROOT'] . '/../' . config('views.compiled' , 'storage/views'),
-        ]);
+        $params = [];
+        if (env('APP_ENV', 'production') !== 'development') {
+            $params['cache'] = $_SERVER['DOCUMENT_ROOT'] . '/../' . config('views.compiled' , 'storage/views');
+        }
+        $twig = new Twig_Environment($loader, $params);
         $function = new Twig_SimpleFunction('config', function ($key, $default = null) {
             return config($key, $default);
         });

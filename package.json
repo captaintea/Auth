@@ -2,7 +2,7 @@
     "private": true,
     "scripts": {
         "dev": "NODE_ENV=development gulp && NODE_ENV=development gulp watch",
-        "prod": "gulp --production"
+        "prod": "rm -rf storage/views/ && gulp --production"
     },
     "devDependencies": {
         "bootstrap-sass": "^3.3.7",

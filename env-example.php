@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'APP_ENV' => 'production',
     'DB_HOST' => 'localhost',
     'DB_DATABASE' => 'database',
     'DB_USERNAME' => 'user',
